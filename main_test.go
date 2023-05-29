@@ -55,11 +55,11 @@ func TestTerraformWithTerrafilePath(t *testing.T) {
 	}
 	// Assert output
 	for _, output := range []string{
-		"Checking out master of git@github.com:terraform-aws-modules/terraform-aws-vpc",
-		"Checking out v1.46.0 of git@github.com:terraform-aws-modules/terraform-aws-vpc",
-		"Checking out v3.2.0 of git@github.com:terraform-aws-modules/terraform-aws-vpn-gateway",
-		"Checking out v3.6.1 of git@github.com:terraform-aws-modules/terraform-aws-s3-bucket",
-		"Checking out v5.11.1 of git@github.com:terraform-aws-modules/terraform-aws-iam",
+		"Checking out master of https://github.com/terraform-aws-modules/terraform-aws-vpc.git",
+		"Checking out v1.46.0 of https://github.com/terraform-aws-modules/terraform-aws-vpc.git",
+		"Checking out v3.2.0 of https://github.com/terraform-aws-modules/terraform-aws-vpn-gateway.git",
+		"Checking out v3.6.1 of https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git",
+		"Checking out v5.11.1 of https://github.com/terraform-aws-modules/terraform-aws-iam.git",
 	} {
 		assert.Contains(t, testcli.Stdout(), output)
 	}
@@ -121,11 +121,11 @@ func TestTerraformWithTerrafilePath(t *testing.T) {
 	// Assert checked out correct version
 	for moduleName, cloneOptions := range map[string]map[string]string{
 		"tf-aws-vpc": {
-			"repository": "git@github.com:terraform-aws-modules/terraform-aws-vpc",
+			"repository": "https://github.com/terraform-aws-modules/terraform-aws-vpc.git",
 			"version":    "v1.46.0",
 		},
 		"tf-aws-vpc-experimental": {
-			"repository": "git@github.com:terraform-aws-modules/terraform-aws-vpc",
+			"repository": "https://github.com/terraform-aws-modules/terraform-aws-vpc.git",
 			"version":    "master",
 		},
 	} {
@@ -144,29 +144,29 @@ func TestTerraformWithTerrafilePath(t *testing.T) {
 	for dst, checkout := range map[string]map[string]map[string]string{
 		"testdata/networking/vendor/modules": {
 			"tf-aws-s3-bucket": {
-				"repository": "git@github.com:terraform-aws-modules/terraform-aws-s3-bucket",
+				"repository": "https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git",
 				"version":    "v3.6.1",
 			},
 			"tf-aws-vpn-gateway": {
-				"repository": "git@github.com:terraform-aws-modules/terraform-aws-vpn-gateway",
+				"repository": "https://github.com/terraform-aws-modules/terraform-aws-vpn-gateway.git",
 				"version":    "v3.2.0",
 			},
 		},
 		"testdata/iam/vendor/modules": {
 			"tf-aws-iam": {
-				"repository": "git@github.com:terraform-aws-modules/terraform-aws-iam",
+				"repository": "https://github.com/terraform-aws-modules/terraform-aws-iam.git",
 				"version":    "v5.11.1",
 			},
 		},
 		"testdata/onboarding/vendor/modules": {
 			"tf-aws-s3-bucket": {
-				"repository": "git@github.com:terraform-aws-modules/terraform-aws-s3-bucket",
+				"repository": "https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git",
 				"version":    "v3.6.1",
 			},
 		},
 		"testdata/some-other-stack/vendor/modules": {
 			"tf-aws-s3-bucket": {
-				"repository": "git@github.com:terraform-aws-modules/terraform-aws-s3-bucket",
+				"repository": "https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git",
 				"version":    "v3.6.1",
 			},
 		},
@@ -276,23 +276,23 @@ func createFile(t *testing.T, filename string, contents string) {
 
 func createTerrafile(t *testing.T, folder string) {
 	var yaml = `tf-aws-vpc:
-  source:  "git@github.com:terraform-aws-modules/terraform-aws-vpc"
+  source:  "https://github.com/terraform-aws-modules/terraform-aws-vpc.git"
   version: "v1.46.0"
 tf-aws-vpc-experimental:
-  source:  "git@github.com:terraform-aws-modules/terraform-aws-vpc"
+  source:  "https://github.com/terraform-aws-modules/terraform-aws-vpc.git"
   version: "master"
 tf-aws-vpn-gateway:
-  source:  "git@github.com:terraform-aws-modules/terraform-aws-vpn-gateway"
+  source:  "https://github.com/terraform-aws-modules/terraform-aws-vpn-gateway.git"
   version: "v3.2.0"
   destinations:
     - testdata/networking
 tf-aws-iam:
-  source:  "git@github.com:terraform-aws-modules/terraform-aws-iam"
+  source:  "https://github.com/terraform-aws-modules/terraform-aws-iam.git"
   version: "v5.11.1"
   destinations:
     - testdata/iam
 tf-aws-s3-bucket:
-  source:  "git@github.com:terraform-aws-modules/terraform-aws-s3-bucket"
+  source:  "https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git"
   version: "v3.6.1"
   destinations:
     - testdata/networking
@@ -304,21 +304,21 @@ tf-aws-s3-bucket:
 
 func createTerrafile2(t *testing.T, folder string) {
 	var yaml = `tf-aws-vpc:
-  source:  "git@github.com:terraform-aws-modules/terraform-aws-vpc"
+  source:  "https://github.com/terraform-aws-modules/terraform-aws-vpc.git"
   version: "v1.46.0"
 tf-aws-vpn-gateway:
-  source:  "git@github.com:terraform-aws-modules/terraform-aws-vpn-gateway"
+  source:  "https://github.com/terraform-aws-modules/terraform-aws-vpn-gateway.git"
   version: "v3.2.0"
   destinations:
     - testdata/networking
     - testdata/some-other-stack
 tf-aws-iam:
-  source:  "git@github.com:terraform-aws-modules/terraform-aws-iam"
+  source:  "https://github.com/terraform-aws-modules/terraform-aws-iam.git"
   version: "v5.11.1"
   destinations:
     - testdata/iam
 tf-aws-s3-bucket:
-  source:  "git@github.com:terraform-aws-modules/terraform-aws-s3-bucket"
+  source:  "https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git"
   version: "v3.6.1"
   destinations:
     - testdata/onboarding

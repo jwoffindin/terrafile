@@ -18,10 +18,19 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync"
+
+	"github.com/go-git/go-git/v5"
+	// "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/transport/http"
+	"github.com/go-git/go-git/v5/storage/memory"
 
 	"github.com/jessevdk/go-flags"
 	"github.com/nritholtz/stdemuxerhook"
@@ -31,16 +40,17 @@ import (
 
 type module struct {
 	Source       string   `yaml:"source"`
+	Directory    string   `yaml:"directory"`
 	Version      string   `yaml:"version"`
 	Destinations []string `yaml:"destinations"`
 }
 
 var opts struct {
-	ModulePath string `short:"p" long:"module_path" default:"./vendor/modules" description:"File path to install generated terraform modules, if not overridden by 'destinations:' field"`
-
-	TerrafilePath string `short:"f" long:"terrafile_file" default:"./Terrafile" description:"File path to the Terrafile file"`
-
-	Clean bool `short:"c" long:"clean" description:"Remove everything from destinations and module path upon fetching module(s)\n !!! WARNING !!! Removes all files and folders in the destinations including non-modules."`
+	ModulePath    string `short:"p" long:"module-path" default:"./vendor/modules" description:"File path to install generated terraform modules, if not overridden by 'destinations:' field"`
+	TerrafilePath string `short:"f" long:"terrafile-file" default:"./Terrafile" description:"File path to the Terrafile file"`
+	Clean         bool   `short:"c" long:"clean" description:"Remove everything from destinations and module path upon fetching module(s)\n !!! WARNING !!! Removes all files and folders in the destinations including non-modules."`
+	AuthUser      string `short:"u" long:"auth-user" description:"Basic auth username"`
+	AuthPassword  string `short:"P" long:"auth-password" description:"Basic auth password"`
 }
 
 // To be set by goreleaser on build
@@ -50,20 +60,98 @@ var (
 	date    = "unknown"
 )
 
+var auth http.BasicAuth
+
 func init() {
 	// Needed to redirect logrus to proper stream STDOUT vs STDERR
 	log.AddHook(stdemuxerhook.New(log.StandardLogger()))
 }
 
-func gitClone(repository string, version string, moduleName string, destinationDir string) {
-	cleanupPath := filepath.Join(destinationDir, moduleName)
-	log.Printf("[*] Removing previously cloned artifacts at %s", cleanupPath)
-	_ = os.RemoveAll(cleanupPath)
+func writeFile(prefix string, dstDir string, f *object.File) error {
+	// Get reader for file contents
+	in, err := f.Blob.Reader()
+	if err != nil {
+		log.Fatalf("failed to read file %s due to error: %s", f.Name, err)
+	}
+
+	// Full path to destination path - f.Name can include subdirectories
+	dst := filepath.Join(dstDir, f.Name)
+
+	// Ensure the directory of 'dst' file exists
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		log.Fatalf("failed to create directory for %s due to error: %s", dst, err)
+	}
+
+	// Create dest file
+	out, err := os.Create(dst)
+	if err != nil {
+		log.Fatalf("failed to create file %s due to error: %s", f.Name, err)
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, in)
+	if err != nil {
+		log.Fatalf("unable to write file %s due to error: %s", f.Name, err)
+	}
+
+	return nil
+}
+
+func gitClone(repository string, directory string, version string, moduleName string, destinationDir string) {
+	modulePath := filepath.Join(destinationDir, moduleName)
+	log.Printf("[*] Removing previously cloned artifacts at %s", modulePath)
+	_ = os.RemoveAll(modulePath)
 	log.Printf("[*] Checking out %s of %s \n", version, repository)
-	cmd := exec.Command("git", "clone", "--single-branch", "--depth=1", "-b", version, repository, moduleName)
-	cmd.Dir = destinationDir
-	if err := cmd.Run(); err != nil {
-		log.Fatalf("failed to clone repository %s due to error: %s", cmd.String(), err)
+
+	// Refer to https://github.com/go-git/go-git/blob/master/_examples/azure_devops/main.go
+	transport.UnsupportedCapabilities = []capability.Capability{
+		capability.ThinPack,
+	}
+
+	// In-memory clone of repository
+	repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
+		URL:  repository,
+		Auth: &auth,
+	})
+	if err != nil {
+		log.Fatalf("failed to clone repository %s due to error: %s", repository, err)
+	}
+
+	// Resolve reference (tag or branch name) to commit
+	ref, err := repo.Reference(plumbing.NewBranchReferenceName(version), true)
+	if err != nil {
+		ref, err = repo.Reference(plumbing.NewTagReferenceName(version), true)
+		if err != nil {
+			log.Fatalf("unable to resolve version %s due to error: %s", version, err)
+		}
+	}
+
+	commit, err := repo.CommitObject(ref.Hash())
+	if err != nil {
+		log.Fatalf("unable to resolve commit associated with tag %s due to error: %s", version, err)
+	}
+
+	// Get (root) tree for the commit
+	tree, err := commit.Tree()
+	if err != nil {
+		log.Fatalf("unable to resolve tree associated with tag %s due to error: %s", version, err)
+	}
+
+	// If user specified directory, get tree for that directory
+	if directory != "" {
+		tree, err = tree.Tree(directory)
+		if err != nil {
+			log.Fatalf("unable to find %s for version %s due to error: %s", directory, version, err)
+		}
+	}
+
+	// Write out files to local filesystem (under destinationDir)
+	err = tree.Files().ForEach(func(f *object.File) error {
+		return writeFile(directory, modulePath, f)
+	})
+
+	if err != nil {
+		log.Fatalf("unable to write module %s files due to error: %s", destinationDir, err)
 	}
 }
 
@@ -95,6 +183,9 @@ func main() {
 		log.Fatalf("failed to parse yaml file due to error: %s", err)
 	}
 
+	auth.Username = opts.AuthUser
+	auth.Password = opts.AuthPassword
+
 	if opts.Clean {
 		cleanDestinations(config)
 	}
@@ -119,7 +210,6 @@ func main() {
 				cloneDestination = filepath.Join(m.Destinations[0], opts.ModulePath)
 				// the rest of Destinations are locations to link module to
 				linkDestinations = m.Destinations[1:]
-
 			}
 
 			// create folder to clone into
@@ -131,7 +221,7 @@ func main() {
 			}
 
 			// clone repository
-			gitClone(m.Source, m.Version, key, cloneDestination)
+			gitClone(m.Source, m.Directory, m.Version, key, cloneDestination)
 
 			for _, d := range linkDestinations {
 				// the source location as folder where module was cloned and module folder name
