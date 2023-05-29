@@ -1,7 +1,7 @@
 defaults: &defaults
-  working_directory: /go/src/github.com/jwoffindin/terrafile
+  working_directory: /home/circleci/src/github.com/jwoffindin/terrafile
   docker:
-    - image: circleci/golang:1.20
+    - image: cimg/go:1.20.4
 
 version: 2
 jobs:
