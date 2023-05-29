@@ -22,10 +22,3 @@ changelog:
     exclude:
       - '^docs:'
       - '^test:'
-brews:
-  - tap:
-      owner: jwoffindin
-      name: homebrew-terrafile
-    folder: Formula
-    homepage: "https://github.com/jwoffindin/terrafile"
-    description: "Manage external modules from Azure DevOps for use in Terraform."
