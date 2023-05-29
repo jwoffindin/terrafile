@@ -20,3 +20,5 @@ terrafile
 .idea/
 dist/
 .DS_Store
+.vscode
+

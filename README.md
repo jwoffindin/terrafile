@@ -1,21 +1,23 @@
 # Terrafile
 
-Terrafile is a binary written in Go to systematically manage external modules from Github for use in Terraform. See this [article](http://bensnape.com/2016/01/14/terraform-design-patterns-the-terrafile/) for more information on how it was introduced in a Ruby rake task.
+Terrafile is a binary written in Go to retrieve modules from Azure DevOps for use in Terraform.
+
+It is a non-backwards compatible fork of <https://github.com/coretech/terrafile>.
 
 ## How to install
 
 ### macOS
 
 ```sh
-brew tap coretech/terrafile && brew install terrafile
+brew tap jwoffindin/terrafile && brew install terrafile
 ```
 
 ### Linux
-Download your preferred flavor from the [releases](https://github.com/coretech/terrafile/releases/latest) page and install manually.
+Download your preferred flavor from the [releases](https://github.com/jwoffindin/terrafile/releases/latest) page and install manually.
 
 For example:
 ```sh
-curl -L https://github.com/coretech/terrafile/releases/download/v{VERSION}/terrafile_{VERSION}_Linux_x86_64.tar.gz | tar xz -C /usr/local/bin
+curl -L https://github.com/jwoffindin/terrafile/releases/download/v{VERSION}/terrafile_{VERSION}_Linux_x86_64.tar.gz | tar xz -C /usr/local/bin
 ```
 
 ## How to use
@@ -109,7 +111,7 @@ Final destination of the module is handled in a similar way as in first approach
 The output of the run is exactly the same in both options.
 
 ## TODO
-* Break out the main logic into seperate commands (e.g. version, help, run)
+* Break out the main logic into separate commands (e.g. version, help, run)
 * Update tests to include unit tests for broken out commands
 * Add coverage tool and badge
 * May be worth renaming Terrafile config file to something that won't be misinterpreted as the binary
