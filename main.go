@@ -99,9 +99,9 @@ func writeFile(prefix string, dstDir string, f *object.File) error {
 
 func gitClone(repository string, directory string, version string, moduleName string, destinationDir string) {
 	modulePath := filepath.Join(destinationDir, moduleName)
-	log.Printf("[*] Removing previously cloned artifacts at %s", modulePath)
+	log.Debugf("[*] Removing previously cloned artifacts at %s", modulePath)
 	_ = os.RemoveAll(modulePath)
-	log.Printf("[*] Checking out %s of %s \n", version, repository)
+	log.Printf("[*] Checking out %s of %s", version, repository)
 
 	// Refer to https://github.com/go-git/go-git/blob/master/_examples/azure_devops/main.go
 	transport.UnsupportedCapabilities = []capability.Capability{
@@ -117,14 +117,8 @@ func gitClone(repository string, directory string, version string, moduleName st
 		log.Fatalf("failed to clone repository %s due to error: %s", repository, err)
 	}
 
-	// Resolve reference (tag or branch name) to commit
-	ref, err := repo.Reference(plumbing.NewBranchReferenceName(version), true)
-	if err != nil {
-		ref, err = repo.Reference(plumbing.NewTagReferenceName(version), true)
-		if err != nil {
-			log.Fatalf("unable to resolve version %s due to error: %s", version, err)
-		}
-	}
+	// Resolve reference, tag or branch name, and then map to commit SHA
+	ref := resolveReference(repo, version)
 
 	commit, err := repo.CommitObject(ref.Hash())
 	if err != nil {
@@ -153,6 +147,23 @@ func gitClone(repository string, directory string, version string, moduleName st
 	if err != nil {
 		log.Fatalf("unable to write module %s files due to error: %s", destinationDir, err)
 	}
+}
+
+// resolveReference resolves a reference to a commit SHA. The reference can be a tag,
+// branch (local or remote), or commit SHA. Go-git doesn't set remote tracking, so only
+// master branch is available.
+func resolveReference(repo *git.Repository, version string) *plumbing.Reference {
+	ref, err := repo.Reference(plumbing.NewBranchReferenceName(version), true)
+	if err != nil {
+		ref, err = repo.Reference(plumbing.NewRemoteReferenceName("origin", version), true)
+		if err != nil {
+			ref, err = repo.Reference(plumbing.NewTagReferenceName(version), true)
+			if err != nil {
+				log.Fatalf("unable to resolve version %s due to error: %s", version, err)
+			}
+		}
+	}
+	return ref
 }
 
 func main() {
