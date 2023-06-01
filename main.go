@@ -49,7 +49,7 @@ var opts struct {
 	ModulePath    string `short:"p" long:"module-path" default:"./vendor/modules" description:"File path to install generated terraform modules, if not overridden by 'destinations:' field"`
 	TerrafilePath string `short:"f" long:"terrafile-file" default:"./Terrafile" description:"File path to the Terrafile file"`
 	Clean         bool   `short:"c" long:"clean" description:"Remove everything from destinations and module path upon fetching module(s)\n !!! WARNING !!! Removes all files and folders in the destinations including non-modules."`
-	NetRcPath     string `short:"n" long:"netrc-path" description:"Path to .netrc file, if not specified, will use $HOME/.netrc"`
+	NetRcFile     string `short:"n" long:"netrc-file" description:"Path to .netrc file, if not specified, will use $HOME/.netrc"`
 }
 
 // To be set by goreleaser on build
@@ -205,7 +205,7 @@ func main() {
 	}
 
 	// Get netrc file path
-	netrcPath := opts.NetRcPath
+	netrcPath := opts.NetRcFile
 	if netrcPath == "" {
 		netrcPath = filepath.Join(os.Getenv("HOME"), ".netrc")
 	}
