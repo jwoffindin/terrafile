@@ -4,6 +4,7 @@ go 1.20
 
 require (
 	github.com/go-git/go-git/v5 v5.7.0
+	github.com/jdxcode/netrc v0.0.0-20221124155335-4616370d1a84
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/nritholtz/stdemuxerhook v0.0.0-20181016194454-2c86ca05d211
 	github.com/rendon/testcli v1.0.0

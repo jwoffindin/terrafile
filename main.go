@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -24,14 +25,13 @@ import (
 	"sync"
 
 	"github.com/go-git/go-git/v5"
-	// "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/protocol/packp/capability"
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
-
+	"github.com/jdxcode/netrc"
 	"github.com/jessevdk/go-flags"
 	"github.com/nritholtz/stdemuxerhook"
 	log "github.com/sirupsen/logrus"
@@ -49,8 +49,7 @@ var opts struct {
 	ModulePath    string `short:"p" long:"module-path" default:"./vendor/modules" description:"File path to install generated terraform modules, if not overridden by 'destinations:' field"`
 	TerrafilePath string `short:"f" long:"terrafile-file" default:"./Terrafile" description:"File path to the Terrafile file"`
 	Clean         bool   `short:"c" long:"clean" description:"Remove everything from destinations and module path upon fetching module(s)\n !!! WARNING !!! Removes all files and folders in the destinations including non-modules."`
-	AuthUser      string `short:"u" long:"auth-user" description:"Basic auth username"`
-	AuthPassword  string `short:"P" long:"auth-password" description:"Basic auth password"`
+	NetRcPath     string `short:"n" long:"netrc-path" description:"Path to .netrc file, if not specified, will use $HOME/.netrc"`
 }
 
 // To be set by goreleaser on build
@@ -60,7 +59,9 @@ var (
 	date    = "unknown"
 )
 
-var auth http.BasicAuth
+var (
+	netrcFile *netrc.Netrc
+)
 
 func init() {
 	// Needed to redirect logrus to proper stream STDOUT vs STDERR
@@ -108,6 +109,9 @@ func gitClone(repository string, directory string, version string, moduleName st
 		capability.ThinPack,
 	}
 
+	// extract hostname from `repository` which is a URL (git or https)
+	auth := getHostAuth(repository)
+
 	// In-memory clone of repository
 	repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:  repository,
@@ -117,9 +121,8 @@ func gitClone(repository string, directory string, version string, moduleName st
 		log.Fatalf("failed to clone repository %s due to error: %s", repository, err)
 	}
 
-	// Resolve reference, tag or branch name, and then map to commit SHA
+	// Resolve reference, tag or branch name, and then map SHA to commit
 	ref := resolveReference(repo, version)
-
 	commit, err := repo.CommitObject(ref.Hash())
 	if err != nil {
 		log.Fatalf("unable to resolve commit associated with tag %s due to error: %s", version, err)
@@ -131,7 +134,7 @@ func gitClone(repository string, directory string, version string, moduleName st
 		log.Fatalf("unable to resolve tree associated with tag %s due to error: %s", version, err)
 	}
 
-	// If user specified directory, get tree for that directory
+	// If user specified directory, get sub-tree for that directory
 	if directory != "" {
 		tree, err = tree.Tree(directory)
 		if err != nil {
@@ -147,6 +150,26 @@ func gitClone(repository string, directory string, version string, moduleName st
 	if err != nil {
 		log.Fatalf("unable to write module %s files due to error: %s", destinationDir, err)
 	}
+}
+
+// getHostAuth returns http.BasicAuth for the given repository. If netrc file is
+// available, it will be used to get the credentials.
+func getHostAuth(repository string) http.BasicAuth {
+	endpoint, err := transport.NewEndpoint(repository)
+	if err != nil {
+		log.Fatalf("failed to parse repository %s due to error: %s", repository, err)
+	}
+
+	if netrcFile != nil {
+		machine := netrcFile.Machine(endpoint.Host)
+		if machine != nil {
+			return http.BasicAuth{
+				Username: machine.Get("login"),
+				Password: machine.Get("password"),
+			}
+		}
+	}
+	return http.BasicAuth{}
 }
 
 // resolveReference resolves a reference to a commit SHA. The reference can be a tag,
@@ -167,7 +190,6 @@ func resolveReference(repo *git.Repository, version string) *plumbing.Reference 
 }
 
 func main() {
-
 	fmt.Printf("Terrafile: version %v, commit %v, built at %v \n", version, commit, date)
 	_, err := flags.Parse(&opts)
 
@@ -182,6 +204,20 @@ func main() {
 		log.Errorf("failed to get working directory absolute path due to: %s", err)
 	}
 
+	// Get netrc file path
+	netrcPath := opts.NetRcPath
+	if netrcPath == "" {
+		netrcPath = filepath.Join(os.Getenv("HOME"), ".netrc")
+	}
+
+	// Get netrc file if it exists
+	if _, err := os.Stat(netrcPath); !errors.Is(err, os.ErrNotExist) {
+		netrcFile, err = netrc.Parse(netrcPath)
+		if err != nil {
+			log.Errorf("failed to parse netrc file %s due to error: %s", netrcPath, err)
+		}
+	}
+
 	// Read File
 	yamlFile, err := os.ReadFile(opts.TerrafilePath)
 	if err != nil {
@@ -193,9 +229,6 @@ func main() {
 	if err := yaml.Unmarshal(yamlFile, &config); err != nil {
 		log.Fatalf("failed to parse yaml file due to error: %s", err)
 	}
-
-	auth.Username = opts.AuthUser
-	auth.Password = opts.AuthPassword
 
 	if opts.Clean {
 		cleanDestinations(config)

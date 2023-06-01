@@ -6,8 +6,8 @@ setup:
 
 build:
 	@echo "Building..."
-	go build -mod=mod -o terrafile
+	GO111MODULE=on go build -mod=mod -o terrafile
 
 test:
 	@echo "Testing..."
-	go test -mod=readonly -v ./...
+	GO111MODULE=on go test -mod=readonly -v ./...
