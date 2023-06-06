@@ -115,7 +115,7 @@ func gitClone(repository string, directory string, version string, moduleName st
 	// In-memory clone of repository
 	repo, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL:  repository,
-		Auth: &auth,
+		Auth: auth,
 	})
 	if err != nil {
 		log.Fatalf("failed to clone repository %s due to error: %s", repository, err)
@@ -154,7 +154,7 @@ func gitClone(repository string, directory string, version string, moduleName st
 
 // getHostAuth returns http.BasicAuth for the given repository. If netrc file is
 // available, it will be used to get the credentials.
-func getHostAuth(repository string) http.BasicAuth {
+func getHostAuth(repository string) http.AuthMethod {
 	endpoint, err := transport.NewEndpoint(repository)
 	if err != nil {
 		log.Fatalf("failed to parse repository %s due to error: %s", repository, err)
@@ -163,13 +163,17 @@ func getHostAuth(repository string) http.BasicAuth {
 	if netrcFile != nil {
 		machine := netrcFile.Machine(endpoint.Host)
 		if machine != nil {
-			return http.BasicAuth{
+			oauthToken := machine.Get("oauth-token")
+			if oauthToken != "" {
+				return &http.TokenAuth{Token: oauthToken}
+			}
+			return &http.BasicAuth{
 				Username: machine.Get("login"),
 				Password: machine.Get("password"),
 			}
 		}
 	}
-	return http.BasicAuth{}
+	return &http.BasicAuth{}
 }
 
 // resolveReference resolves a reference to a commit SHA. The reference can be a tag,
