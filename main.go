@@ -235,13 +235,15 @@ func main() {
 	}
 
 	if opts.Clean {
+		os.RemoveAll(opts.ModulePath)
 		cleanDestinations(config)
 	}
 
+	// Ensure module path exists
+	os.MkdirAll(opts.ModulePath, os.ModePerm)
+
 	// Clone modules
 	var wg sync.WaitGroup
-	_ = os.RemoveAll(opts.ModulePath)
-	_ = os.MkdirAll(opts.ModulePath, os.ModePerm)
 
 	for key, mod := range config {
 		wg.Add(1)
@@ -323,7 +325,6 @@ func cleanDestinations(config map[string]module) {
 	}
 
 	for dst := range uniqueDestinations {
-
 		log.Infof("[*] Removing artifacts from %s", dst)
 		if err := os.RemoveAll(dst); err != nil {
 			log.Errorf("Failed to remove artifacts from %s due to error: %s", dst, err)
